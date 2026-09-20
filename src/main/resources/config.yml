@@ -1,0 +1,82 @@
+# ShipyardRental configuration
+
+# Material used to fill a plot back in when it is reset (finished & collected, or admin reset).
+# AIR just empties it out. Use something like WATER or a floor material if you prefer.
+Reset Fill Block: AIR
+
+# What GameMode a renter is switched to while standing inside their own active plot.
+Build GameMode: CREATIVE
+
+# Priority given to the WorldGuard regions this plugin creates. Being a region's owner
+# only bypasses THAT region's own flags - if another region (spawn protection, a
+# world-wide claim region, etc.) also covers the same spot and the renter isn't a
+# member of it too, its build:deny still wins unless this region's priority is higher.
+# Default WorldGuard priority is 0, so most "protect everything" setups sit at 0 too -
+# this needs to beat whatever the highest of those is on your server.
+Plot Region Priority: 10
+
+# How many plots a single player can actively rent at once. A player holding a
+# "shipyardrental.rent.<N>" permission (e.g. shipyardrental.rent.4) gets a cap of N
+# instead of this default - the highest such permission they hold wins, it doesn't
+# stack on top of this number. Everyone still needs the base "shipyardrental.rent"
+# permission (default true) just to use /shipyard rent at all; the numbered ones only
+# raise the cap for whoever's been specifically granted one.
+Max Rentals Per Player: 1
+
+# Grace period (minutes) after a rental expires before the plot is auto-reset and freed up.
+# Set to -1 to disable auto-reset entirely (an admin has to run /shipyard reset).
+Expiry Grace Period Minutes: 1440
+
+# How often (in seconds) the plugin checks for expired rentals.
+Expiry Check Interval Seconds: 60
+
+# When a player runs /shipyard finish, multiply the raw material worth by this to get final price.
+# Use this as a labor/handling markup (or discount, if < 1).
+Finish Price Multiplier: 1.0
+
+# Material worth for any block type not listed in worth.yml.
+Default Block Worth: 0.0
+
+# How many blocks above the placed StructureBox the finished ship's floor should land.
+# The ship is saved with its origin shifted this far below its own lowest block, so
+# StructureBoxes pastes it starting that many blocks above wherever the box gets placed,
+# instead of the ship's floor landing flush with (and overwriting) the box itself.
+# 0 reverts to the old behavior (ship's floor lands exactly on the placed box).
+Schematic Vertical Offset: 1
+
+# Where finished, unpurchased ship money goes when a player buys their own listing from the shop.
+# ECONOMY_SINK: money just disappears from the economy (acts as a materials cost).
+# SERVER_ACCOUNT: paid into the account named below (needs Vault + an economy that supports it).
+Purchase Payment Destination: ECONOMY_SINK
+Server Account Name: "bank"
+
+# If true, the plot is cleared (reset to Reset Fill Block) and the rental ended the moment
+# /shipyard finish succeeds, freeing the plot for the next renter.
+Clear Plot On Finish: true
+
+# Safety net: if a player logs out while "inside" (inventory swapped to creative build mode)
+# and logs back in, force them back to survival with their original inventory restored
+# rather than leaving them stuck in creative with an empty inventory.
+Restore On Rejoin If Stuck Inside: true
+
+# --- Exploit prevention while a player is mid build-session (creative, real inventory stashed) ---
+# The concern isn't creative mode itself, it's letting an item ESCAPE the swap into
+# something that survives it: an ender chest, a plugin's virtual storage command, or a
+# partner outside the plot catching a dropped item. See BuildModeGuardListener.
+
+# Only these base commands (no leading slash, case-insensitive) can be run while in a
+# build session. Everything else is blocked - this is intentionally an allowlist, not a
+# blocklist, since there's no way to know every storage/trade/kit/warp command every
+# plugin on your server might add later.
+# "wg" is included because /wg debug testplace/testbreak/testinteract are read-only
+# diagnostic simulations - none of WorldGuard's own "wg" subcommands move, store, or
+# create items, so they don't reopen anything the command allowlist exists to prevent.
+Build Mode Allowed Commands:
+  - shipyard
+  - sy
+  - shipyards
+  - wg
+
+# Blocks dropping items entirely while in a build session, so nobody can toss creative
+# blocks over the plot boundary to an accomplice waiting outside.
+Block Item Drop In Build Mode: true
