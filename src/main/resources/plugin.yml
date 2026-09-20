@@ -5,7 +5,7 @@ version: '${project.version}'
 # api-version warning on startup, check what format Purpur/Paper actually expect now
 # and adjust this to match; it's not verified against a real 26.2 server here.
 api-version: '26.2'
-author: you
+author: kadika66
 depend:
   # FastAsyncWorldEdit registers itself under the plugin name "WorldEdit" specifically
   # for drop-in compatibility with plugins like this one - no change needed here even
