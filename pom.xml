@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>io.github.shipyard</groupId>
+    <artifactId>shipyard-rental</artifactId>
+    <version>1.4.0</version>
+    <packaging>jar</packaging>
+
+    <name>ShipyardRental</name>
+    <description>Rent a WorldGuard plot, build a ship, price it, and hand it out as a StructureBox.</description>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!-- Minecraft 26.2 requires Java 25+ server-side. -->
+        <maven.compiler.source>25</maven.compiler.source>
+        <maven.compiler.target>25</maven.compiler.target>
+    </properties>
+
+    <repositories>
+        <!-- Purpur's own repo - Paper API comes bundled with it, so paper-api isn't
+             depended on separately anymore. -->
+        <repository>
+            <id>purpurmc</id>
+            <url>https://repo.purpurmc.org/snapshots</url>
+        </repository>
+        <repository>
+            <id>enginehub</id>
+            <url>https://maven.enginehub.org/repo/</url>
+        </repository>
+        <repository>
+            <id>jitpack</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
+
+    <dependencies>
+        <!-- Server API: Purpur (a Paper fork) - includes Bukkit/Spigot/Paper's own API too. -->
+        <dependency>
+            <groupId>org.purpurmc.purpur</groupId>
+            <artifactId>purpur-api</artifactId>
+            <!-- Matches "Purpur version 26.2-2618" (Minecraft 26.2, Purpur build 2618).
+                 Verify this resolves for you - Purpur's build-tagged version string format
+                 is newer than what's reflected in most of its own docs/examples, which
+                 still mostly show the pre-calendar-versioning "1.21.5-R0.1-SNAPSHOT" style.
+                 If this exact string 404s, check https://repo.purpurmc.org/snapshots for
+                 the closest available build for 26.2. -->
+            <version>26.2.build.2618-stable</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- WorldEdit: schematic read/write, selections. Depending directly on FAWE's own
+             artifacts rather than plain worldedit-core/worldedit-bukkit, since the actual
+             server runs FastAsyncWorldEdit, not vanilla WorldEdit - FAWE republishes the
+             same com.sk89q.worldedit.* classes our code already imports (BukkitAdapter,
+             BlockVector3, CuboidRegion, etc.), so no Java source changes were needed for
+             this, just the dependency swap. FastAsyncWorldEdit-Bukkit is marked non-
+             transitive per IntellectualSites' own documented usage, since it otherwise
+             drags in a specific bundled WorldEdit-Core version alongside our own pin. -->
+        <dependency>
+            <groupId>com.fastasyncworldedit</groupId>
+            <artifactId>FastAsyncWorldEdit-Core</artifactId>
+            <version>2.15.3</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.fastasyncworldedit</groupId>
+            <artifactId>FastAsyncWorldEdit-Bukkit</artifactId>
+            <version>2.15.3</version>
+            <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!-- WorldGuard: plot regions. WorldGuard keeps its own 7.0.x version line across
+             many Minecraft versions rather than reving per-release, so this is a direct
+             version bump with no other changes needed. -->
+        <dependency>
+            <groupId>com.sk89q.worldguard</groupId>
+            <artifactId>worldguard-bukkit</artifactId>
+            <version>7.0.18</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Vault: economy. Unrelated to Minecraft version, unchanged. -->
+        <dependency>
+            <groupId>com.github.MilkBowl</groupId>
+            <artifactId>VaultAPI</artifactId>
+            <version>1.7</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>ShipyardRental</finalName>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <!-- lets plugin.yml's ${project.version} get substituted with the real version -->
+                <filtering>true</filtering>
+            </resource>
+        </resources>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <release>25</release>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

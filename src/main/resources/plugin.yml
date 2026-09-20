@@ -1,0 +1,59 @@
+name: ShipyardRental
+main: io.github.shipyard.rental.ShipyardRentalPlugin
+version: '${project.version}'
+# Best-effort update for calendar-versioned Minecraft (26.2) - if the server logs an
+# api-version warning on startup, check what format Purpur/Paper actually expect now
+# and adjust this to match; it's not verified against a real 26.2 server here.
+api-version: '26.2'
+author: you
+depend:
+  # FastAsyncWorldEdit registers itself under the plugin name "WorldEdit" specifically
+  # for drop-in compatibility with plugins like this one - no change needed here even
+  # though the server runs FAWE, not vanilla WorldEdit.
+  - WorldEdit
+  - WorldGuard
+  - Vault
+softdepend:
+  - StructureBoxes
+commands:
+  shipyard:
+    aliases: [sy, shipyards]
+    usage: |
+      /shipyard define <id> <pricePerDay> - create a plot from your WorldEdit selection
+      /shipyard remove <id> - delete a plot definition
+      /shipyard list - list all plots
+      /shipyard rent <id> <days> - rent a plot
+      /shipyard extend <id> <days> - add more days to your current rental
+      /shipyard tp [id] - teleport to your rented plot, or a specific one you have access to
+      /shipyard trust <player> - let someone help you build in your plot
+      /shipyard untrust <player> - revoke a trusted helper's access
+      /shipyard trusted - list who you've trusted
+      /shipyard finish <shipName> - price up and save the build you're standing in
+      /shipyard delist <shipName> - pull one of your own designs off the shop
+      /shipyard shop - open your GUI of finished, purchasable ships
+      /shipyard info [id] - show plot/rental status
+      /shipyard reset <id> - admin: forcibly clear and free a plot
+      /shipyard appraise - admin: price your current //wand selection, anywhere on the map
+      /shipyard reload - admin: reload config
+permissions:
+  shipyardrental.admin:
+    description: Manage shipyard plots
+    default: op
+  shipyardrental.admin.bypass:
+    description: Exempt from player-facing restrictions - the build-mode inventory/gamemode swap, and the max-rentals-per-player cap
+    default: op
+  shipyardrental.rent:
+    description: Rent a shipyard plot (see config.yml's "Max Rentals Per Player" and the shipyardrental.rent.<N> tiered permissions for how many at once)
+    default: true
+  shipyardrental.teleport:
+    description: Teleport to your own rented plot, or one you're trusted into, via /shipyard tp
+    default: true
+  shipyardrental.trust:
+    description: Trust another player to help build in your rented plot
+    default: true
+  shipyardrental.finish:
+    description: Finish/price a build
+    default: true
+  shipyardrental.shop:
+    description: Access your ship shop GUI
+    default: true
