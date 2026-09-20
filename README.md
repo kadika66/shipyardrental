@@ -217,16 +217,13 @@ mvn clean package
 ```
 
 The dependencies (`repo.purpurmc.org`, `maven.enginehub.org`, `jitpack.io`, and
-Maven Central for FAWE) need to be reachable from wherever you build - they
-weren't reachable from the sandbox this was written in, so **this project has
-not actually been compiled here**. The exact Purpur API version string
-(`26.2.build.2618-stable`) is a best-effort match for "Purpur 26.2-2618"
-rather than one confirmed against a live build - if it 404s, check
-`https://repo.purpurmc.org/snapshots` for the closest available version and
-update `pom.xml`. Read through the rest (especially `SchematicService` and
-`PlotManager`, which touch the most WorldEdit/WorldGuard API surface) before
-trusting it in production, and fix up anything that's shifted if you're on
-different WorldGuard/FAWE versions than 7.0.18 / 2.15.3.
+Maven Central for FAWE) need to be reachable from wherever you build.
+This project has been built successfully and bug-tested on a live Purpur
+26.2 server, including a manual exploit-hunting pass over the item-duping
+concerns described above. Two features are still pending live testing:
+`/shipyard tp` and the per-player rental cap (`Max Rentals Per Player` /
+`shipyardrental.rent.<N>`, which defaults to one active rental per player).
+Treat those two specifically as unverified until confirmed.
 
 The built jar lands in `target/ShipyardRental.jar` - a fixed filename on
 purpose (not versioned) - drop that into your server's `plugins/` folder

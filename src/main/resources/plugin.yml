@@ -1,9 +1,6 @@
 name: ShipyardRental
 main: io.github.shipyard.rental.ShipyardRentalPlugin
 version: '${project.version}'
-# Best-effort update for calendar-versioned Minecraft (26.2) - if the server logs an
-# api-version warning on startup, check what format Purpur/Paper actually expect now
-# and adjust this to match; it's not verified against a real 26.2 server here.
 api-version: '26.2'
 author: kadika66
 depend:
