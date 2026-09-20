@@ -56,14 +56,15 @@ StructureBox" workflow.
    furnaces, hoppers, dispensers, droppers, shulker boxes, brewing stands,
    jukeboxes, lecterns, spawners, and any future block that turns out to hold
    an item - is captured as bare block type only, so it always pastes back in
-   empty. See "Why decorative data is allowlisted, not blocklisted" below for
-   why that split exists and how it's implemented.
+   empty. See [docs/DESIGN_NOTES.md](docs/DESIGN_NOTES.md#why-decorative-data-is-allowlisted-not-blocklisted)
+   for why that split exists and how it's implemented.
 6. **`/shipyard shop`** opens a GUI of the player's own finished, priced ships.
    Clicking one withdraws the price via Vault and runs StructureBoxes'
    `/structurebox create <name>` *as that player* to hand them the finished
    ship as a placeable StructureBox item. Players are never granted
    StructureBoxes' `structureboxes.create` permission as a standing grant -
-   see "How the StructureBoxes handoff works" below for why that matters.
+   see [docs/DESIGN_NOTES.md](docs/DESIGN_NOTES.md#how-the-structureboxes-handoff-works)
+   for why that matters.
 
    Buying doesn't remove the listing - a finished ship is a design a player
    can buy as many copies of as they want, not a one-off. `/shipyard delist
@@ -87,112 +88,12 @@ StructureBox" workflow.
    sanity-checking `worth.yml` itself, or pricing something without needing
    to put it through a full rent-and-build cycle first.
 
-## Why decorative data is allowlisted, not blocklisted
-
-`SchematicService` captures each block one of two ways:
-
-- **Bare block state** (type + orientation, no NBT) - the default for
-  everything. This is what makes a finished chest, furnace, hopper, dispenser,
-  dropper, shulker box, barrel, brewing stand, jukebox, lectern, or spawner
-  paste back in empty: their contents live in NBT, not block state, so it's
-  simply never read off them.
-- **Full block including NBT** - only for materials matching `SIGN`,
-  `BANNER`, `HEAD`, or `SKULL` (as a name suffix, so it covers every
-  wood/color/wall/hanging variant automatically). That's what carries sign
-  text, banner patterns, and skull skins into the schematic without a rewrite
-  every time a ship gets bought.
-
-This is deliberately an *allowlist* of "known safe to preserve" rather than a
-blocklist of "known dangerous to preserve," for the same reason the command
-restrictions in `BuildModeGuardListener` are an allowlist: a blocklist has to
-be perfectly complete to be safe, and Minecraft keeps adding new block types -
-Chiseled Bookshelves (1.20) hold real books, for instance. A blocklist authored
-before that update shipped would have missed it and started leaking real
-items through finished schematics. An allowlist just doesn't grant NBT to
-anything until someone deliberately adds it here, so a missed block type fails
-safe (pastes empty) instead of failing open (leaks an item).
-
-If you ever add a block family to `isDecorativeNbtType` in `SchematicService`,
-the thing to verify first is that it can never hold an item under any
-circumstance - not "doesn't currently," but structurally can't.
-
-## Exploit prevention: keeping creative items out of survival
-
-The inventory swap only protects the player's *own inventory container*.
-Anything that lets an item leave that container into something the swap
-doesn't touch is a duplication vector. `BuildModeGuardListener` closes the
-three most obvious ones:
-
-- **Ender chests** are vanilla, per-player storage that exists independently
-  of any block, so it isn't wiped when the plot resets. Opening one (by
-  command like `/enderchest`/`/echest`, or by physically placing and
-  right-clicking one) is blocked outright while a build session is active.
-- **Any other command** is blocked unless it's on `Build Mode Allowed
-  Commands` in `config.yml` (just `/shipyard` and its aliases by default).
-  This is deliberately an *allowlist*, not a blocklist of known-bad plugins
-  like PlayerVaults' `/pv` - there's no way to enumerate every storage, bank,
-  kit, or trade command that might exist on your server (now or after a
-  future plugin update), so instead nothing runs mid-session except what you
-  explicitly permit.
-- **Dropping items** is blocked entirely (`Block Item Drop In Build Mode`),
-  which closes the simplest exploit of all: toss a stack over the plot
-  boundary for an accomplice standing just outside to walk over and grab -
-  WorldGuard's `BUILD` flag doesn't govern item pickup, so this needed its
-  own check.
-
-Teleports (ender pearls, `/tpa`, warps, chorus fruit) are also watched
-alongside normal walking, so a player can't sidestep the exit swap entirely by
-teleporting out of the plot instead of walking out.
-
-**A separate one, found during play-testing: plot-clearing itself could leak
-container contents.** The schematic capture never includes what's inside a
-chest/furnace/hopper/etc in the first place (see `captureAndPrice`'s NBT
-handling above) - but `SchematicService.clearPlot`, which runs right after
-`/shipyard finish` (and on `/shipyard reset` and the expiry sweep), used to
-just overwrite every block's type directly. Doing that to a container still
-triggers Minecraft's own "container removed" handling under the hood, which
-spills its contents as item entities on the ground - and since the player is
-switched back to survival *before* the plot gets cleared, they'd be standing
-right there to pick them up. This has nothing to do with what made it into
-the schematic; it's a completely separate leak in the cleanup step, and one
-that can't be caught with a normal Bukkit event listener, since no
-block-break event fires for a plugin-initiated block swap. `clearPlot` now
-empties any `InventoryHolder` block's inventory (chests, furnaces, hoppers,
-dispensers, droppers, shulker boxes, brewing stands, barrels, lecterns, and
-any future block Mojang adds that holds items the same way - checked broadly
-rather than enumerated, same reasoning as everywhere else in this doc) plus
-jukeboxes as a special case, before ever changing the block itself.
-
-**Still worth play-testing / not fully closed here:**
-- **Hoppers/pistons piercing the plot boundary.** WorldGuard's `BUILD` flag
-  governs *player* actions, not block-to-block automation - a hopper placed
-  at the very edge of the plot (which the renter, as a region member, is
-  allowed to place) can push items into a chest sitting just outside the
-  boundary in unclaimed territory, with no player action to intercept.
-  Consider banning hoppers/droppers inside shipyard plots entirely, or a
-  dedicated anti-hopper-piercing plugin, if this matters on your server.
-- **Trade/backpack/kit plugins that build a custom UI without going through
-  Bukkit's `Inventory` API** won't fire `InventoryOpenEvent` and so won't be
-  caught by that specific check - they'd still be blocked by the command
-  allowlist if triggered by a command, but not if triggered by, say, an NPC
-  right-click.
-- **Giving items directly to another player** standing at the plot boundary
-  (if any plugin/vanilla mechanic allows a direct player-to-player transfer)
-  isn't specifically covered.
-
-## How the StructureBoxes handoff works
-
-Giving a player `structureboxes.create` as a standing permission would let
-them run `/structurebox create <any schematic on the server>` themselves,
-completely bypassing the worth calculation and Vault charge - a free item
-duplication/creation exploit. So players never get that permission normally.
-
-Instead, when a player clicks "buy" in `/shipyard shop`, `ShopGui` grants
-`structureboxes.create` to that player via a `PermissionAttachment` scoped to
-just that one `dispatchCommand` call, then immediately removes it. Bukkit's
-command dispatch is synchronous on the main thread, so there's no window for
-the player to sneak in a different `/structurebox create` call while they
-transiently hold the permission.
+See [docs/DESIGN_NOTES.md](docs/DESIGN_NOTES.md) for the reasoning behind the
+safety-relevant design decisions above: why decorative block data (signs,
+banners, heads/skulls) is allowlisted rather than blocklisted, the full list
+of exploit-prevention measures in `BuildModeGuardListener`, and how the
+StructureBoxes purchase handoff avoids granting players a standing
+duplication-capable permission.
 
 ## Requirements
 
@@ -240,95 +141,12 @@ number in `pom.xml` actually changes between builds - bump it (e.g.
 `1.1.0` -> `1.1.1`) whenever you rebuild locally, or that command will keep
 reporting the same string regardless of which jar is actually loaded.
 
-## If a renter shows as region owner but still can't build
+## Troubleshooting
 
-This bit us during live testing, so it's worth documenting properly rather
-than leaving the outdated theory in here. Two separate WorldGuard issues can
-produce the exact same "Hey! Sorry, but you can't place that block here"
-symptom with a correctly-listed owner, and it took a full debugging session
-(complete with WorldGuard's own `/wg debug testplace` simulator) to tell them
-apart:
-
-**1. Priority, if another region overlaps the same spot.** Being a region's
-owner only bypasses *that specific region's* flags. If any other region also
-covers the same location - a spawn-protect zone, a world-wide "claim
-everything by default" region, anything - and the renter isn't a member of
-*that* region too, its `build: deny` still wins unless the shipyard region
-outranks it on priority. The plugin sets `Plot Region Priority` (default
-`10`, see `config.yml`) on every region it creates for exactly this reason.
-This turned out not to be the actual problem in testing, but it's a real
-failure mode worth ruling out with `/rg setpriority <region id> 10` if you
-hit this.
-
-**2. An explicit `build: DENY` flag can block the owner too.** This was the
-actual bug, and it's counterintuitive enough to call out directly: a
-*freshly created* WorldGuard region already denies build to non-owners with
-zero flags set - that's the built-in protection every new region gets, and it
-comes bundled with an implicit exemption for the region's own owners and
-members. This plugin used to explicitly set `build: DENY` on every region it
-created, on the (very common, very wrong in this case) assumption that doing
-so was redundant with that default and harmless. It isn't. On this server's
-WorldGuard/FAWE setup, explicitly setting the flag overrode the owner
-exemption and applied to *everyone*, owner included - confirmed by testing
-with two accounts side by side: the owner, correctly listed in `/rg info`,
-was denied exactly like a random non-member, and clearing the flag (leaving
-it unset) immediately fixed the owner while correctly continuing to block
-everyone else.
-
-The fix: `PlotManager` no longer sets `build` at all, on new regions or on
-rent/extend. It relies entirely on the default protection new regions ship
-with. This self-heals existing plots too - automatically on the next rent or
-extend, or immediately for every plot via `/shipyard reload`.
-
-For a plot that's stuck **right now** on an already-built jar, clear it
-directly:
-
-```
-/rg flag <region id> build
-```
-
-(no value after `build` - that clears the flag rather than setting it to
-`allow`.) e.g. `/rg flag shipyard_yard1 build` for the plot from this
-debugging session.
-
-**If neither of those is it**, the most useful next step isn't more guessing -
-it's WorldGuard's own diagnostic tool, which tells you definitively which
-plugin (if any) is actually responsible:
-
-```
-/wg debug testplace -t <player>
-```
-
-Run by someone else *targeting* the stuck player by name (the `<player>`
-argument is whose permissions get tested, not the command-runner's - critical,
-because if the stuck player is made op just to get the
-`worldguard.debug.event.*` permission needed to run this themselves, WorldGuard
-bypasses all of its own checks for ops and the test becomes meaningless). Read
-only the **first** line of the plugin-reaction list; WorldGuard prints
-last-run-first, so that's the one whose decision actually stuck. And make sure
-whatever block/location you're testing is actually inside the region's bounds
-- an off-by-one on the Y coordinate (testing the floor block one layer below
-where the region starts) will get "no plugin cancelled it" every time, which
-looks like a false negative but is really just testing the wrong spot.
-
-## If ships keep pricing at 0 (or suspiciously low)
-
-`/shipyard finish` now tells you directly when this happens - it reports how
-many blocks had no `worth.yml` entry and priced at `Default Block Worth`
-(0.0) instead, with a few example material names. If that number is small,
-you're probably just missing a handful of entries. If it's *every* block on
-every ship regardless of what's built, the cause is almost always this:
-
-**`worth.yml` only gets (re)written to disk if it doesn't already exist.**
-`WorthService.load()` intentionally never overwrites an existing
-`plugins/ShipyardRental/worth.yml` - that's correct behavior for not
-clobbering an admin's customizations, but it means updating the plugin jar
-alone does **not** refresh a `worth.yml` that already exists from an earlier
-install, even if the bundled default has since changed completely. Check the
-server log on startup/`/shipyard reload` for `"Loaded N material price(s)
-from worth.yml"` - if N is 0 or far smaller than expected, that's confirming
-this. Delete (or manually replace the contents of) the on-disk file and
-`/shipyard reload` to pick up the current bundled default.
+See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for detailed
+walkthroughs of two issues hit during live testing: a renter showing as
+region owner but still unable to build, and ships pricing at 0 (or
+suspiciously low).
 
 ## Permissions
 
@@ -344,7 +162,7 @@ this. Delete (or manually replace the contents of) the on-disk file and
 | `shipyardrental.shop` | true | open the ship shop GUI, and `/shipyard delist` |
 
 Players do **not** need StructureBoxes' own `structureboxes.create` permission -
-see "How the StructureBoxes handoff works" above.
+see [docs/DESIGN_NOTES.md](docs/DESIGN_NOTES.md#how-the-structureboxes-handoff-works).
 
 ## Known limitations / things to double-check before relying on this
 
